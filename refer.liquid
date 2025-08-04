@@ -1,0 +1,187 @@
+// 1. Frontend JavaScript for Shopify Cart Page
+// Add this to your cart.liquid or cart page template
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Create upload section in cart
+    const cartForm = document.querySelector('form[action="/cart"]');
+    if (cartForm) {
+        const uploadSection = createUploadSection();
+        cartForm.insertBefore(uploadSection, cartForm.querySelector('.cart__submit'));
+    }
+});
+
+function createUploadSection() {
+    const section = document.createElement('div');
+    section.className = 'cart-id-upload';
+    section.innerHTML = `
+        <div class="cart-id-upload__wrapper">
+            <h3>ID Verification Required</h3>
+            <p>Please upload a photo of your ID for verification:</p>
+            
+            <div class="file-upload-container">
+                <input type="file" 
+                       id="id-upload" 
+                       name="id_image" 
+                       accept="image/*" 
+                       required>
+                <label for="id-upload" class="upload-label">
+                    <span class="upload-text">Choose ID Image</span>
+                </label>
+            </div>
+            
+            <div class="upload-preview" id="upload-preview" style="display: none;">
+                <img id="preview-image" src="" alt="ID Preview">
+                <button type="button" id="remove-image">Remove</button>
+            </div>
+            
+            <div class="upload-status" id="upload-status"></div>
+            <input type="hidden" id="uploaded-image-url" name="properties[id_image_url]" value="">
+        </div>
+    `;
+    
+    // Add event listeners
+    const fileInput = section.querySelector('#id-upload');
+    const previewContainer = section.querySelector('#upload-preview');
+    const previewImage = section.querySelector('#preview-image');
+    const removeButton = section.querySelector('#remove-image');
+    const statusDiv = section.querySelector('#upload-status');
+    const hiddenInput = section.querySelector('#uploaded-image-url');
+    
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                previewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+            
+            // Upload to Laravel server
+            uploadToServer(file, statusDiv, hiddenInput);
+        }
+    });
+    
+    removeButton.addEventListener('click', function() {
+        fileInput.value = '';
+        previewContainer.style.display = 'none';
+        hiddenInput.value = '';
+        statusDiv.innerHTML = '';
+    });
+    
+    return section;
+}
+
+async function uploadToServer(file, statusDiv, hiddenInput) {
+    const formData = new FormData();
+    formData.append('id_image', file);
+    formData.append('shop_domain', Shopify.shop);
+    
+    statusDiv.innerHTML = '<div class="upload-loading">Uploading...</div>';
+    
+    try {
+        const response = await fetch('https://your-laravel-app-domain.com/api/upload-id', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            hiddenInput.value = result.image_url;
+            statusDiv.innerHTML = '<div class="upload-success">✓ ID uploaded successfully</div>';
+        } else {
+            throw new Error(result.message || 'Upload failed');
+        }
+    } catch (error) {
+        statusDiv.innerHTML = `<div class="upload-error">Upload failed: ${error.message}</div>`;
+        console.error('Upload error:', error);
+    }
+}
+
+// Prevent cart update if ID not uploaded (optional)
+document.addEventListener('submit', function(e) {
+    if (e.target.matches('form[action="/cart"]')) {
+        const idImageUrl = document.querySelector('#uploaded-image-url');
+        if (idImageUrl && !idImageUrl.value) {
+            e.preventDefault();
+            alert('Please upload your ID before proceeding to checkout.');
+        }
+    }
+});
+
+// CSS Styles (add to your theme's CSS)
+const styles = `
+.cart-id-upload {
+    margin: 20px 0;
+    padding: 20px;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    background: #f9f9f9;
+}
+
+.file-upload-container {
+    position: relative;
+    display: inline-block;
+}
+
+.file-upload-container input[type=file] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.upload-label {
+    display: inline-block;
+    padding: 12px 24px;
+    background: #007bff;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.upload-label:hover {
+    background: #0056b3;
+}
+
+.upload-preview {
+    margin-top: 15px;
+}
+
+.upload-preview img {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.upload-preview button {
+    margin-left: 10px;
+    padding: 5px 10px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.upload-status {
+    margin-top: 10px;
+}
+
+.upload-loading { color: #007bff; }
+.upload-success { color: #28a745; }
+.upload-error { color: #dc3545; }
+`;
+
+// Inject styles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = styles;
+document.head.appendChild(styleSheet);
