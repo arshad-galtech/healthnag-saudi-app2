@@ -20,6 +20,7 @@ class ImageUploadController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $validator->errors()
             ], 422);
@@ -65,7 +66,9 @@ class ImageUploadController extends Controller
                 'size' => $file->getSize()
             ]);
             
+            // Return success response
             return response()->json([
+                'success' => true,
                 'message' => 'Image uploaded successfully',
                 'image_url' => $imageUrl,
                 'filename' => $filename,
@@ -74,11 +77,13 @@ class ImageUploadController extends Controller
             
         } catch (\Exception $e) {
             \Log::error('ID image upload failed', [
+                'success' => false,
                 'error' => $e->getMessage(),
                 'shop_domain' => $request->input('shop_domain')
             ]);
             
             return response()->json([
+                'success' => false,
                 'message' => 'Upload failed: ' . $e->getMessage()
             ], 500);
         }
