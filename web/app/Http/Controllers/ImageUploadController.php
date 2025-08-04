@@ -40,8 +40,8 @@ class ImageUploadController extends Controller
             // Store the file in storage/app/public/id_images/
             $path = $file->storeAs('id_images', $filename, 'public');
             
-            // Generate the public URL
-            $imageUrl = Storage::url($path);
+            // Generate the full public URL with domain
+            $imageUrl = url(Storage::url($path));
             
             // Store upload record in database
             $upload = IdImageUpload::create([
