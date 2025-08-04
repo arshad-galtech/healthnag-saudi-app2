@@ -14,14 +14,21 @@ class ImageUploadController extends Controller
     {
         // Validate the request
         $validator = Validator::make($request->all(), [
-            'id_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB max
+            'id_image' => 'required|file|mimes:jpeg,jpg,png,PNG,JPEG,gif,GIF,pdf,PDF|max:2048', // 2MB max
             'shop_domain' => 'required|string'
+        ], [
+            'id_image.mimes' => 'Only upload these formats: JPEG, JPG, PNG, GIF, PDF',
+            'id_image.max' => 'File size must be less than 2MB',
+            'id_image.required' => 'Please select a file to upload'
         ]);
 
         if ($validator->fails()) {
+            // Get the first error message for user-friendly display
+            $firstError = $validator->errors()->first();
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
+                'message' => $firstError,
                 'errors' => $validator->errors()
             ], 422);
         }
