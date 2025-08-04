@@ -34,7 +34,8 @@ class ImageUploadController extends Controller
             $cleanShopDomain = preg_replace('/[^a-zA-Z0-9\-]/', '', $shopDomain);
             
             // Generate unique filename
-            $filename = $cleanShopDomain . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+            // $filename = $cleanShopDomain . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+             $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
             
             // Store the file in storage/app/public/id_images/
             $path = $file->storeAs('id_images', $filename, 'public');
