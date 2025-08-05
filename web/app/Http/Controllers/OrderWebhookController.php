@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SaudiIdNotification;
 use App\Models\IdImageUpload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -118,114 +119,13 @@ class OrderWebhookController extends Controller
     
     private function sendSaudiIdNotification($data)
     {
-        $to = 'arshad.galtech@gmail.com';
-        $subject = 'Saudi ID Upload - Order #' . $data['order_number'];
-        
-        // Create email content
-        $emailContent = $this->createEmailContent($data);
-        
-        // Send email using Laravel's Mail facade
-        Mail::send([], [], function ($message) use ($to, $subject, $emailContent, $data) {
-            $message->to($to)
-                    ->subject($subject)
-                    ->html($emailContent);
-            
-            // Attach image if available
-            if ($data['upload_record'] && $data['upload_record']->file_path) {
-                $filePath = storage_path('app/public/' . $data['upload_record']->file_path);
-                if (file_exists($filePath)) {
-                    $message->attach($filePath, [
-                        'as' => 'saudi_id_' . $data['order_number'] . '.' . pathinfo($filePath, PATHINFO_EXTENSION),
-                        'mime' => $data['upload_record']->mime_type ?? 'application/octet-stream'
-                    ]);
-                }
-            }
-        });
-    }
-    
-    private function createEmailContent($data)
-    {
-        $html = '
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Saudi ID Upload Notification</title>
-            <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background-color: #1b2b6b; color: white; padding: 20px; text-align: center; }
-                .content { padding: 20px; background-color: #f9f9f9; }
-                .info-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 4px; }
-                .label { font-weight: bold; color: #1b2b6b; }
-                .image-info { margin: 20px 0; padding: 15px; background-color: #e8f4f8; border-radius: 4px; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>🇸🇦 Saudi ID Upload Notification</h1>
-                </div>
-                
-                <div class="content">
-                    <h2>New Order with Saudi ID Upload</h2>
-                    
-                    <div class="info-row">
-                        <span class="label">Order ID:</span> ' . htmlspecialchars($data['order_id']) . '
-                    </div>
-                    
-                    <div class="info-row">
-                        <span class="label">Order Number:</span> #' . htmlspecialchars($data['order_number']) . '
-                    </div>
-                    
-                    <div class="info-row">
-                        <span class="label">Customer Name:</span> ' . htmlspecialchars($data['customer_name']) . '
-                    </div>
-                    
-                    <div class="info-row">
-                        <span class="label">Customer Email:</span> ' . htmlspecialchars($data['customer_email']) . '
-                    </div>';
-        
-        if ($data['shipping_address']) {
-            $html .= '
-                    <div class="info-row">
-                        <span class="label">Shipping Address:</span> ' . htmlspecialchars($data['shipping_address']) . '
-                    </div>';
+        // Prepare attachment path if available
+        $attachmentPath = null;
+        if ($data['upload_record'] && $data['upload_record']->file_path) {
+            $attachmentPath = storage_path('app/public/' . $data['upload_record']->file_path);
         }
         
-        if ($data['upload_record']) {
-            $html .= '
-                    <div class="image-info">
-                        <h3>📄 Uploaded ID Information</h3>
-                        <p><span class="label">Original Filename:</span> ' . htmlspecialchars($data['upload_record']->original_filename) . '</p>
-                        <p><span class="label">File Size:</span> ' . number_format($data['upload_record']->file_size / 1024, 2) . ' KB</p>
-                        <p><span class="label">Upload Date:</span> ' . $data['upload_record']->created_at->format('Y-m-d H:i:s') . '</p>
-                        <p><span class="label">File Type:</span> ' . htmlspecialchars($data['upload_record']->mime_type) . '</p>
-                        <p><strong>📎 ID document is attached to this email</strong></p>
-                    </div>';
-        } else {
-            $html .= '
-                    <div class="image-info">
-                        <h3>⚠️ Upload Record Not Found</h3>
-                        <p>The order contains Saudi ID reference but the upload record could not be located in the database.</p>';
-            
-            if ($data['saudi_image_url']) {
-                $html .= '<p><span class="label">Image URL:</span> ' . htmlspecialchars($data['saudi_image_url']) . '</p>';
-            }
-            
-            $html .= '</div>';
-        }
-        
-        $html .= '
-                    <div style="margin-top: 30px; padding: 15px; background-color: #fff3cd; border-radius: 4px;">
-                        <h4>📋 Action Required</h4>
-                        <p>This order requires Saudi ID verification for customs clearance. Please review the attached document and process accordingly.</p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>';
-        
-        return $html;
+        // Send email using Laravel Mailable
+        Mail::send(new SaudiIdNotification($data, $data['upload_record'], $attachmentPath));
     }
 }
