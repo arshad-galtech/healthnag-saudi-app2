@@ -84,6 +84,30 @@ class OrderWebhookController extends Controller
                     ->orderBy('created_at', 'desc')
                     ->first();
             }
+
+            // Check if we already have a record for this order
+            $existingOrderRecord = IdImageUpload::byOrderId($orderId)->first();
+            if ($existingOrderRecord) {
+                $uploadRecord = $existingOrderRecord;
+                
+                // If email already sent for this order, skip sending
+                if ($uploadRecord->email_sent) {
+                    Log::info('Email already sent for this order', [
+                        'order_id' => $orderId,
+                        'upload_id' => $uploadRecord->id,
+                        'email_sent_at' => $uploadRecord->email_sent_at
+                    ]);
+                    return response()->json(['status' => 'success', 'message' => 'Email already sent'], 200);
+                }
+            }
+
+            // Update upload record with order information if we have one
+            if ($uploadRecord && !$uploadRecord->order_id) {
+                $uploadRecord->update([
+                    'order_id' => $orderId,
+                    'order_number' => $orderNumber
+                ]);
+            }
             
             // Prepare email data
             $emailData = [
@@ -97,12 +121,13 @@ class OrderWebhookController extends Controller
             ];
             
             // Send email notification
-            $this->sendSaudiIdNotification($emailData);
+            $this->sendSaudiIdNotification($emailData, $uploadRecord);
             
             Log::info('Saudi ID notification sent for order', [
                 'order_id' => $orderId,
                 'customer_name' => $customerName,
-                'has_upload_record' => $uploadRecord ? true : false
+                'has_upload_record' => $uploadRecord ? true : false,
+                'email_marked_sent' => $uploadRecord ? true : false
             ]);
             
             return response()->json(['status' => 'success'], 200);
@@ -117,7 +142,7 @@ class OrderWebhookController extends Controller
         }
     }
     
-    private function sendSaudiIdNotification($data)
+    private function sendSaudiIdNotification($data, $uploadRecord = null)
     {
         // Prepare attachment path if available
         $attachmentPath = null;
@@ -125,7 +150,38 @@ class OrderWebhookController extends Controller
             $attachmentPath = storage_path('app/public/' . $data['upload_record']->file_path);
         }
         
-        // Send email using Laravel Mailable
-        Mail::send(new SaudiIdNotification($data, $data['upload_record'], $attachmentPath));
+        try {
+            // Send email using Laravel Mailable
+            Mail::send(new SaudiIdNotification($data, $data['upload_record'], $attachmentPath));
+            
+            // Mark email as sent in database if we have an upload record
+            if ($uploadRecord) {
+                $emailMetadata = [
+                    'sent_to' => 'arshad.galtech@gmail.com',
+                    'order_id' => $data['order_id'],
+                    'order_number' => $data['order_number'],
+                    'customer_name' => $data['customer_name'],
+                    'has_attachment' => $attachmentPath ? true : false,
+                    'sent_via' => 'order_webhook'
+                ];
+                
+                $uploadRecord->markEmailSent($emailMetadata);
+                
+                Log::info('Email status updated in database', [
+                    'upload_id' => $uploadRecord->id,
+                    'order_id' => $data['order_id'],
+                    'email_sent_at' => $uploadRecord->fresh()->email_sent_at
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to send Saudi ID notification email', [
+                'error' => $e->getMessage(),
+                'order_id' => $data['order_id'],
+                'upload_record_id' => $uploadRecord ? $uploadRecord->id : null
+            ]);
+            
+            throw $e; // Re-throw to be caught by main webhook handler
+        }
     }
 }

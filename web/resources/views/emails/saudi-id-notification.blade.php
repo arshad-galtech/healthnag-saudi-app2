@@ -161,7 +161,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🇸🇦 Saudi ID Upload Notification</h1>
+            <h1>Saudi ID Upload Notification</h1>
         </div>
         
         <div class="content">
@@ -202,8 +202,8 @@
                     
                     <div class="upload-details">
                         <div class="upload-detail">
-                            <div class="label">Original Filename</div>
-                            <div class="value">{{ $uploadRecord->original_filename }}</div>
+                            <div class="label"> Filename</div>
+                            <div class="value">{{ $uploadRecord->filename }}</div>
                         </div>
                         
                         <div class="upload-detail">
