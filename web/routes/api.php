@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ImageUploadController;
+use App\Http\Controllers\OrderWebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,3 +22,5 @@ Route::get('/', function () {
 
 // Route for uploading ID images from Shopify theme
 Route::post('/upload-id', [ImageUploadController::class, 'uploadId']);
+// Order creation webhook for Saudi ID processing
+Route::post('/webhooks/orders/create', [OrderWebhookController::class, 'handleOrderCreated']);

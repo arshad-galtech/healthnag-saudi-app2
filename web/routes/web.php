@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ShopifyProductCreatorException;
+use App\Http\Controllers\OrderWebhookController;
 use App\Lib\AuthRedirection;
 use App\Lib\EnsureBilling;
 use App\Lib\ProductCreator;
@@ -74,6 +75,17 @@ Route::get('/api/auth/callback', function (Request $request) {
         );
     }
 
+    // Register order creation webhook for Saudi ID processing
+    $orderResponse = Registry::register('/api/webhooks/orders/create', Topics::ORDERS_CREATE, $shop, $session->getAccessToken());
+    if ($orderResponse->isSuccess()) {
+        Log::debug("Registered ORDERS_CREATE webhook for shop $shop");
+    } else {
+        Log::error(
+            "Failed to register ORDERS_CREATE webhook for shop $shop with response body: " .
+                print_r($orderResponse->getBody(), true)
+        );
+    }
+
     $redirectUrl = Utils::getEmbeddedAppUrl($host);
     if (Config::get('shopify.billing.required')) {
         list($hasPayment, $confirmationUrl) = EnsureBilling::check($session, Config::get('shopify.billing'));
@@ -125,6 +137,8 @@ Route::post('/api/products', function (Request $request) {
         return response()->json(["success" => $success, "error" => $error], $code);
     }
 })->middleware('shopify.auth');
+
+
 
 Route::post('/api/webhooks', function (Request $request) {
     try {
